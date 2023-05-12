@@ -58,10 +58,10 @@ function PITracker:OnInitialize()
 	local L = PITrackerLocalization
 	local profileDefault = {
 		profile = {
-			responseFormat = L.RESPONSE_FORMAT,
 			flavorText = L.FLAVOR_TEXT_DEFAULT,
 			announcement = L.ANNOUNCEMENT_DEFAULT,
-			isDecimalComma = L.DECIMAL_COMMAS_DEFAULT
+			isDecimalComma = false,
+			isMuteStats = true,
 		},
 		char = {
 			totalPICount = 0,
@@ -76,8 +76,8 @@ function PITracker:OnInitialize()
 			custom = {
 				name = "Custom Options",
 				type = "group",
-				set = function(info, v) self.profile[info[#info]] = v end,
-				get = function(info, v) return self.profile[info[#info]] end,
+				set = function(info, v) self.db.profile[info[#info]] = v end,
+				get = function(info, ...) return self.db.profile[info[#info]] end,
 				args = {
 					flavorText = {
 						name = L.FLAVOR_TEXT,
@@ -133,7 +133,7 @@ function PITracker:OnInitialize()
 								type = "execute",
 								desc = L.RESET_RANK_DESC,
 								order = 4,
-								func = function() self.statsDB.pi_stats={} end,
+								func = function() self.db.char.pi_stats={} end,
 							},
 							resetAllStats = {
 								name = L.RESET_ALL_STATS,
@@ -141,10 +141,10 @@ function PITracker:OnInitialize()
 								desc = L.RESET_ALL_STATS_DESC,
 								order = -1,
 								func = function() 
-											self.statsDB.pi_stats={}
-											self.statsDB.damage={}
-											self.statsDB.healing={}
-											self.statsDB.totalPICount=0
+											self.db.char.pi_stats={}
+											self.db.char.damage={}
+											self.db.char.healing={}
+											self.db.char.totalPICount=0
 										end,
 							}
 						}
@@ -155,20 +155,18 @@ function PITracker:OnInitialize()
 		}
 	}
 
-	local db = LibStub("AceDB-3.0"):New("PITrackerDB", profileDefault)
-	self.profile = db.profile
-	self.statsDB = db.char
+	self.db = LibStub("AceDB-3.0"):New("PITrackerDB", profileDefault, true)
 	self.allstates = {}
 	self.isPI = 0
 	self.isEncounter = false
 	self.isZoneSanctuary = false
 	self.playerGUID = UnitGUID("player")
-	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(db)
+	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("PITracker", options.args.custom)
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("Profiles", options.args.profiles)
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("PITracker Profiles", options.args.profiles)
 	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("PITracker","PI Tracker")
-	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("Profiles", "Profiles", "PI Tracker")
+	LibStub("AceConfigDialog-3.0"):AddToBlizOptions("PITracker Profiles", "Profiles", "PI Tracker")
 	self:RegisterChatCommand("pitracker", "SlashCommand")
 	self:RegisterChatCommand("pi", "SlashCommand")
 end
@@ -221,7 +219,7 @@ function PITracker:SPELL_AURA_APPLIED(...)
 			damage = 0,
 			healing = 0,
 		}
-		SendChatMessage(self.profile.announcement, "WHISPER", nil, destName)
+		SendChatMessage(self.db.profile.announcement, "WHISPER", nil, destName)
 	end
 end
 
@@ -229,16 +227,16 @@ function PITracker:SPELL_AURA_REMOVED(...)
 	local _,_,_,sourceGUID,_,_,_,destGUID,destName,_,_,spellID = ...
 	if (sourceGUID == self.playerGUID) and (spellID == PI_SPELLID) then
 		local statsMsgFmt = "Times PI'd: %d. This rank: %.0f. Best rank: %.0f."
-		local newStats = self.statsDB.pi_stats[destGUID] and self.statsDB.pi_stats[destGUID] or {piCount=0, best=0, avg=0}
+		local newStats = self.db.char.pi_stats[destGUID] and self.db.char.pi_stats[destGUID] or {piCount=0, best=0, avg=0}
 		local spellType = self.allstates[destGUID].damage >= self.allstates[destGUID].healing and "damage" or "healing"
 
-		local activeList = self.statsDB[spellType]
+		local activeList = self.db.char[spellType]
 		local total = self.allstates[destGUID][spellType]
-		local dmgMsg = self.profile.responseFormat:format(
-											self:format_int(total), spellType, self.profile.flavorText)
+		local dmgMsg = PITrackerLocalization.RESPONSE_FORMAT:format(
+											self:format_int(total), spellType, self.db.profile.flavorText)
 		SendChatMessage(dmgMsg, "WHISPER", nil, destName)
 		newStats.piCount = newStats.piCount + 1
-		self.statsDB.totalPICount = self.statsDB.totalPICount + 1
+		self.db.char.totalPICount = self.db.char.totalPICount + 1
 
 		if (total > 0) then
 			local i = table.bininsert(activeList, total)
@@ -246,14 +244,14 @@ function PITracker:SPELL_AURA_REMOVED(...)
 			newStats.best = rank > newStats.best and rank or newStats.best
 			newStats.avg = ceil(newStats.avg + (rank - newStats.avg) / newStats.piCount)
 			local statsMsg = statsMsgFmt:format(newStats.piCount, rank, newStats.best)
-			if not self.profile.isMuteStats then
+			if not self.db.profile.isMuteStats then
 				SendChatMessage(statsMsg, "WHISPER", nil, destName)
 			end
 		end
 
 
 		self.isPI = self.isPI - 1
-		self.statsDB.pi_stats[destGUID] = newStats
+		self.db.char.pi_stats[destGUID] = newStats
 		self.allstates[destGUID] = nil
 	end
 end
@@ -269,10 +267,10 @@ end
 
 
 function PITracker:format_int(number)
-	local decimalSym = self.profile.isDecimalComma and '.' or ','
+	local decimalSym = self.db.profile.isDecimalComma and '.' or ','
 	local _, _, minus, int, fraction = tostring(number):find('([-]?)(%d+)([.]?%d*)')
 	int = int:reverse():gsub("(%d%d%d)", "%1"..decimalSym)
-	if self.profile.isDecimalComma and #fraction>1 then
+	if self.db.profile.isDecimalComma and #fraction>1 then
 	    fraction = ","..fraction:sub(2)
 	end
 	return minus .. int:reverse():gsub("^"..decimalSym, "") .. fraction

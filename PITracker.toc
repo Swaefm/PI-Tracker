@@ -1,7 +1,7 @@
-## Interface: 30400
+## Interface: 30401
 ## Title: PI Tracker
 ## Notes: Announces to your target when they receive PI, and whispers their damage or healing done during its duration.
-## Author: Swae
+## Author: Swaefm - Faerlina (H)
 ## Version: 1.0.0
 ## SavedVariables: PITrackerDB
 
