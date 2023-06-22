@@ -1,5 +1,5 @@
 # PI-Tracker
-An addon (designed for Priests) that whispers that target when they receive PI and tracks their damage or healing done. It also records this data to "rank" each PI.
+An addon (designed for Priests) that whispers that target when they receive PI and tracks their damage or healing done. It also records this data to "rank" each PI. Download from https://addons.wago.io/addons/pi-tracker
 
 PI Tracker for WotLKC
 
