@@ -1,4 +1,4 @@
-## Interface: 30401
+## Interface: 30402
 ## Title: PI Tracker
 ## Notes: Announces to your target when they receive PI, and whispers their damage or healing done during its duration.
 ## Author: Swaefm - Faerlina (H)
